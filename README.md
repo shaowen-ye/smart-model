@@ -1,157 +1,155 @@
-# Smart Model — Intelligent Model Selection for Claude Code
+# Smart Model — 智能模型选择
 
-**[中文版](README_zh.md)**
+**[English](README_en.md)**
 
-> Stop guessing which model to use. Let Claude decide — or decide for you, silently.
-
-Smart Model analyzes task complexity across 6 dimensions and recommends the optimal Claude model (Opus / Sonnet / Haiku) before execution. It saves costs on simple tasks and prevents quality loss on complex ones.
+Claude Code 的模型智能调度工具。根据任务复杂度自动推荐最合适的模型（Opus / Sonnet / Haiku），避免"杀鸡用牛刀"或"小马拉大车"。
 
 ---
 
-## The Problem
+## 解决什么问题
 
-Claude Code offers three model tiers with very different price/performance tradeoffs:
+Claude Code 提供三档模型：
 
-| Model | Strengths | Relative Cost |
-|-------|-----------|---------------|
-| **Opus 4.6** | Deep reasoning, cross-domain synthesis, long-form writing | 5x |
-| **Sonnet 4.6** | Day-to-day coding, moderate synthesis, batch operations | 1x |
-| **Haiku 4.5** | Quick lookups, syntax fixes, confirmations | 0.2x |
+| 模型 | 特长 | 单价（相对） | 适用场景 |
+|------|------|------------|---------|
+| **Opus 4.6** | 深度推理、跨领域综合、长文写作 | 5x | ~20% 的高复杂度任务 |
+| **Sonnet 4.6** | 日常开发、中等综合、批量操作 | 1x | ~70% 的常规任务 |
+| **Haiku 4.5** | 快速查询、格式修正、简单确认 | 0.2x | ~10% 的轻量任务 |
 
-~80% of tasks are Sonnet-level, but users default to Opus "just in case" — wasting ~$63/month on 100 tasks. Conversely, using Sonnet for genuinely complex work produces noticeably weaker results.
+问题在于：用户很难在每次任务前准确判断该用哪个模型。用 Opus 做简单任务浪费成本，用 Sonnet 做复杂综合则质量下降。
 
-## How It Works
+---
 
-### Two Modes
+## 两种工作模式
 
-| Mode | Trigger | Behavior | Overhead |
-|------|---------|----------|----------|
-| **Automatic** | Every conversation (via CLAUDE.md) | Silent when model matches; one-line nudge when it doesn't | Zero in common case |
-| **Manual** | `/smart-model <task>` | Full 6-dimension analysis table | On demand |
+### 模式一：自动（被动模式）
 
-### The 6 Dimensions
+写入 `~/.claude/CLAUDE.md` 后全局生效，每次对话自动判断：
 
-| Dimension | What it measures |
-|-----------|-----------------|
-| **Reasoning depth** | Follow instructions vs. novel analysis |
-| **Source breadth** | How many files/inputs to integrate |
-| **Output creativity** | Mechanical operation vs. original composition |
-| **Error cost** | Easy redo vs. cascading consequences |
-| **Context demand** | Local scope vs. holding many files simultaneously |
-| **Ambiguity** | Clear spec vs. defining the problem itself |
+- **模型匹配** → 静默执行，用户完全无感
+- **当前模型偏弱** → 一句话提醒，等用户决定
+- **当前模型偏强** → 一句话提示，继续执行
 
-**Decision rule**: 2+ dimensions High → Opus. Most Low-Medium → Sonnet. All Low → Haiku.
+用户体验：绝大多数时候和没装一样，只在关键时刻"拍一下肩膀"。
 
-## Installation
+### 模式二：手动（主动模式）
 
-### 1. Copy the skill folder
-
-```bash
-cp -r smart-model ~/.claude/skills/
-```
-
-### 2. Enable automatic mode (recommended)
-
-Append the content of [`references/auto-mode-snippet.md`](references/auto-mode-snippet.md) to your `~/.claude/CLAUDE.md`.
-
-### 3. Done
-
-- Automatic mode works immediately in all new conversations
-- Manual mode: type `/smart-model <task description>` anytime
-
-## Usage Examples
-
-### Automatic mode (typical experience)
+用户主动调用，获取完整分析：
 
 ```
-You (Sonnet): "Rename these 83 files and update wikilinks"
-Claude: [silently proceeds — Sonnet is appropriate]
-
-You (Sonnet): "Synthesize 40 papers into a cross-domain impact analysis"
-Claude: "This task would benefit from Opus. Consider /model to switch before I start."
-
-You (Opus): "Check how many files are in this folder"
-Claude: "FYI: Sonnet-level task, proceeding with current model."
+/smart-model 综合40篇笔记写一篇跨类群生态影响专题页
 ```
 
-### Manual mode (`/smart-model`)
+输出6维度评分表 + 推荐理由 + 行动建议。
+
+---
+
+## 6维度评估框架
+
+| 维度 | 评估内容 | 举例 |
+|------|---------|------|
+| **推理深度** | 是否需要原创分析、矛盾解决、论证构建 | 低：按模板填表 / 高：设计新的分类体系 |
+| **来源广度** | 需要整合多少个文件或信息源 | 低：改1个文件 / 高：综合20+篇论文 |
+| **输出创造性** | 机械操作 vs 原创写作 | 低：批量重命名 / 高：写综述论文 |
+| **错误代价** | 做错了是否容易发现和修复 | 低：格式修正 / 高：架构设计错误级联 |
+| **上下文需求** | 需要同时在脑中保持多少信息 | 低：单文件修改 / 高：跨10个文件的一致性 |
+| **模糊度** | 需求是否明确 | 低：明确的bug修复 / 高：需要先定义问题本身 |
+
+**决策规则**：2个以上维度为"高" → Opus；多数"低-中" → Sonnet；全部"低" → Haiku。
+
+---
+
+## 决策速查表
+
+### 推荐 Opus 的典型任务
+
+- 跨领域综合写作（>15篇来源，需要提炼原创观点）
+- 新系统/新模块的架构设计（长期影响的决策）
+- 学术长文（论文初稿、基金申请书正文、综述）
+- 反复失败的疑难调试（需要更深层的根因分析）
+- 需要同时理解多个复杂文件间关系的任务
+
+### 推荐 Sonnet 的典型任务
+
+- 功能实现、代码生成、重构
+- 批量文件操作（重命名、格式转换、数据迁移）
+- 中等规模的综合写作（≤12篇来源的概念页）
+- 数据库操作、API集成
+- 测试编写、文档更新
+- Agent 调度和编排
+
+### 推荐 Haiku 的典型任务
+
+- 文件查找、数量统计、简单grep
+- 语法修正、格式化
+- "这个命令有没有成功？"类确认
+- 快速原型迭代（速度优先）
+
+---
+
+## 特殊场景处理
+
+### 混合复杂度任务
+
+如果一个任务包含不同复杂度的阶段：
 
 ```
-/smart-model Design a new database schema for the research wiki
+"先从数据库提取200条记录，然后设计新的分类体系"
 ```
 
-Output:
-```
-Task Analysis
-----------------------------------------------
-Reasoning depth  : High — novel schema design with long-term consequences
-Source breadth   : Med  — need to understand existing data patterns
-Output creativity: High — original architecture, not template
-Error cost       : High — schema mistakes cascade to all downstream code
-Context demand   : Med  — several existing files to review
-Ambiguity        : High — requirements underspecified
+建议分步：Phase 1（数据提取）→ Sonnet，Phase 2（架构设计）→ Opus。
 
-Recommendation   : Opus 4.6
-Reason           : Architectural decision with lasting consequences, 3 High dimensions
-Current model    : Sonnet 4.6
-Action           : Switch recommended
-```
+### 并行 Agent 调度
 
-## File Structure
+主线程用 Sonnet 做调度即可，子 Agent 可以按需指定模型：
 
 ```
-smart-model/
-├── SKILL.md                    ← Main skill file (Claude reads this)
-├── README.md                   ← This file (English)
-├── README_zh.md                ← Chinese documentation
-├── LICENSE                     ← MIT License
-├── .gitignore
+Agent(model="opus", prompt="综合分析这20篇论文...")
+Agent(model="sonnet", prompt="批量重命名这些文件...")
+```
+
+### 不确定时的默认策略
+
+如果无法判断复杂度 → 默认 Sonnet 开始，过程中发现质量不够再提醒切换。
+
+---
+
+## 安装
+
+### 前置条件
+
+- Claude Code CLI 已安装
+- `~/.claude/skills/` 目录存在
+
+### 文件结构
+
+```
+~/.claude/skills/smart-model/
+├── SKILL.md              ← 主技能文件（Claude 读取执行）
+├── 中文说明.md            ← 本文件（用户阅读）
 ├── templates/
-│   └── analysis-output.md      ← Output format template
+│   └── analysis-output.md ← 输出格式模板
 └── references/
-    ├── model-capabilities.md   ← Detailed model comparison + cost analysis
-    ├── decision-examples.md    ← 12 real-world decision cases
-    └── auto-mode-snippet.md    ← CLAUDE.md snippet for automatic mode
+    ├── model-capabilities.md  ← 各模型能力详细参考
+    └── decision-examples.md   ← 决策案例库
 ```
 
-## Quick Reference
+### 启用自动模式
 
-### When does it recommend Opus?
+在 `~/.claude/CLAUDE.md` 中添加 "Automatic Model Fitness Check" 段落（见 `references/auto-mode-snippet.md`）。
 
-- Cross-domain synthesis from 15+ sources requiring original insight
-- Architectural decisions with long-term consequences
-- Sustained academic writing >2000 words
-- Debugging that has already failed on simpler attempts
-- Tasks where the user signals high stakes
+---
 
-### When does it stay with Sonnet?
+## 常见问题
 
-- Feature implementation, code generation, refactoring
-- Batch operations regardless of file count (scale ≠ complexity)
-- Moderate synthesis (≤12 bounded sources)
-- Agent orchestration and dispatch
-- Most day-to-day software engineering
+**Q: 自动模式会不会每次都多输出一堆分析？**
+A: 不会。模型匹配时完全静默。只在不匹配时多输出一行提醒。
 
-### When does it suggest Haiku?
+**Q: 会不会阻止我执行任务？**
+A: 不会。只有"当前模型偏弱"时会建议切换并等待确认。其他情况都直接执行。
 
-- Single-command lookups (`ls`, `grep`, `wc`)
-- Syntax fixes, formatting corrections
-- "Did that work?" validation checks
+**Q: 能否覆盖推荐？**
+A: 随时可以。推荐只是建议，用户始终有最终决定权。
 
-## FAQ
-
-**Q: Will automatic mode slow down every interaction?**
-A: No. When the model matches (the common case), it's completely silent — zero extra output.
-
-**Q: Can it block me from using a model?**
-A: Never. It only advises. You always have the final decision.
-
-**Q: Does "important" mean "use Opus"?**
-A: No. Importance ≠ complexity. A critical but simple config change is still Sonnet-level. Opus is for tasks requiring deep reasoning, not high stakes.
-
-**Q: What about mixed-complexity workflows?**
-A: It suggests splitting: "Phase 1 (data extraction) → Sonnet. Phase 2 (synthesis) → Opus."
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+**Q: Opus 真的比 Sonnet 贵5倍？**
+A: 按 input/output token 计价，Opus 约为 Sonnet 的 5 倍。日常80%的任务用 Sonnet 足够，每月可节省可观成本。
